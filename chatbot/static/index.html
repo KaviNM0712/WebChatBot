@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>🌱 AI BASED FARMER CHATBOT</title>
+</head>
+<body>
+<h1>🌱 AI BASED FARMER CHATBOT</h1>
+
+<!-- Text Input -->
+<input type="text" id="textInput" placeholder="ഇംഗ്ലീഷ് അല്ലെങ്കിൽ മലയാളത്തിൽ ടൈപ്പ് ചെയ്യുക…"
+       style="width: 500px; padding: 10px; font-size: 16px;">
+<br><br>
+<button onclick="sendText()" style="padding: 10px 20px; font-size: 16px;">Send</button>
+<button id="recordBtn" style="padding: 10px 20px; font-size: 16px;">Start Recording</button>
+
+<p id="status"></p>
+
+<!-- Response -->
+<p id="textResponse"></p>
+<audio id="audioResponse" controls></audio>
+
+<script>
+let mediaRecorder;
+let audioChunks = [];
+
+const recordBtn = document.getElementById("recordBtn");
+const status = document.getElementById("status");
+const textResponse = document.getElementById("textResponse");
+const audioResponse = document.getElementById("audioResponse");
+
+// Voice recording
+recordBtn.onclick = async () => {
+    if (!mediaRecorder || mediaRecorder.state === "inactive") {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.onstop = sendAudio;
+
+        mediaRecorder.start();
+        status.innerText = "Recording...";
+        recordBtn.innerText = "Stop Recording";
+    } else {
+        mediaRecorder.stop();
+        status.innerText = "Processing...";
+        recordBtn.innerText = "Start Recording";
+    }
+};
+
+// Send recorded audio
+async function sendAudio() {
+    const blob = new Blob(audioChunks, { type: "audio/wav" });
+    const formData = new FormData();
+    formData.append("file", blob, "voice.wav");
+
+    const res = await fetch("http://127.0.0.1:8000/voice-chat", { method: "POST", body: formData });
+    const data = await res.json();
+
+    textResponse.innerText = data.text;
+    audioResponse.src = data.audio_file;
+    audioResponse.play();
+    status.innerText = "";
+}
+
+// Text chat
+async function sendText() {
+    const message = document.getElementById("textInput").value;
+    if (!message) return;
+
+    const res = await fetch("http://127.0.0.1:8000/text-chat", { 
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message })
+    });
+
+    const data = await res.json();
+    textResponse.innerText = data.text;
+    audioResponse.src = data.audio_file;
+    audioResponse.play();
+    document.getElementById("textInput").value = "";
+}
+</script>
+</body>
+</html>
